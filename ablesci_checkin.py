@@ -47,6 +47,20 @@ UA = (
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
+
+def _ssl_context():
+    """优先用 certifi 的 CA 包。
+
+    部分 macOS/Homebrew 的 Python 没把系统根证书装进 openssl，直接连 https 会报
+    CERTIFICATE_VERIFY_FAILED。装了 certifi 就用它；没装则回退到系统默认。
+    """
+    import ssl
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
 # ---------------------------------------------------------------- 结果类型
 
 SUCCESS = "success"                # 本次签到成功
@@ -195,7 +209,8 @@ class AbleSciSession:
     def __init__(self, cookie_header: str = "") -> None:
         self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(self.jar)
+            urllib.request.HTTPCookieProcessor(self.jar),
+            urllib.request.HTTPSHandler(context=_ssl_context()),
         )
         self.base_headers = {
             "User-Agent": UA,
