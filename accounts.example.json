@@ -1,0 +1,19 @@
+{
+  "_说明": "复制本文件为 accounts.json 并填真实值；accounts.json 已被 .gitignore 排除，切勿提交。",
+  "_方式一_推荐": "每个账号同时给 cookie 和 email/password：优先用 Cookie，失效时自动降级登录。",
+  "_方式二": "只给 email/password：脚本自动取 CSRF 登录；若站点要求图形验证码会失败。",
+  "_方式三": "只给 cookie：最省事，但过期后需手动更新。",
+  "_取Cookie": "浏览器登录 www.ablesci.com → F12 → Network → 任一请求 → Request Headers → 复制整行 Cookie 值。",
+  "accounts": [
+    {
+      "label": "我的科研通",
+      "cookie": "PHPSESSID=把这里换成真实值; _identity=把这里换成真实值",
+      "email": "you@example.com",
+      "password": "你的密码"
+    },
+    {
+      "email": "second@example.com",
+      "password": "第二个账号的密码"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+name: 科研通每日签到
+
+# GitHub Actions 的 cron 一律使用 UTC。
+# 这里 = 北京时间 08:10 与 21:10，两次机会，失败可在后一次补上。
+# 注意：GitHub 对定时任务不保证准点，常有 5~30 分钟延迟，属正常现象。
+on:
+  schedule:
+    - cron: '10 0 * * *'    # UTC 00:10 = 北京时间 08:10
+    - cron: '10 13 * * *'   # UTC 13:10 = 北京时间 21:10
+  workflow_dispatch:        # 允许在 Actions 页面手动点一次「Run workflow」做测试
+    inputs:
+      dry_run:
+        description: '只校验配置、不联网签到（填 true）'
+        required: false
+        default: 'false'
+
+# 同一时刻只跑一个实例；后触发的排队等待而不是被取消，避免漏签。
+concurrency:
+  group: ablesci-checkin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 离线自测（不联网）
+        run: python3 ablesci_checkin.py --selftest
+
+      - name: 校验账号配置
+        env:
+          ABLESCI_ACCOUNTS_JSON: ${{ secrets.ABLESCI_ACCOUNTS_JSON }}
+          ABLESCI_ACCOUNTS: ${{ secrets.ABLESCI_ACCOUNTS }}
+          ABLESCI_COOKIE: ${{ secrets.ABLESCI_COOKIE }}
+        run: |
+          if [ -n "${ABLESCI_ACCOUNTS_JSON}${ABLESCI_ACCOUNTS}${ABLESCI_COOKIE}" ]; then
+            echo "已检测到账号配置"
+            python3 ablesci_checkin.py --dry-run
+          else
+            echo "::error::未配置任何账号 Secret。请在 Settings → Secrets and variables → Actions 中添加 ABLESCI_ACCOUNTS_JSON（推荐）或 ABLESCI_ACCOUNTS / ABLESCI_COOKIE。"
+            exit 1
+          fi
+
+      - name: 执行签到
+        env:
+          ABLESCI_ACCOUNTS_JSON: ${{ secrets.ABLESCI_ACCOUNTS_JSON }}
+          ABLESCI_ACCOUNTS: ${{ secrets.ABLESCI_ACCOUNTS }}
+          ABLESCI_COOKIE: ${{ secrets.ABLESCI_COOKIE }}
+          # ---- 可选推送（不配置即不发送）----
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+          # always=每次推送；failure=仅失败时推送（默认）；never=不推送
+          NOTIFY_ON: ${{ vars.NOTIFY_ON || 'failure' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "dry_run=true，跳过实际签到"
+            exit 0
+          fi
+          # 不 echo 任何 Secret；脚本内部还会注册 ::add-mask:: 二次脱敏
+          python3 ablesci_checkin.py

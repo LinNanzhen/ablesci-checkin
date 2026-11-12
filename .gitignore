@@ -1,0 +1,12 @@
+# 账号与密钥：绝对不要提交
+accounts.json
+.env
+cookies.json
+*.log
+
+# 本地运行产物
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+venv/
